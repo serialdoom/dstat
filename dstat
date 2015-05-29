@@ -20,6 +20,7 @@ from __future__ import generators
 try:
     import sys, os, time, sched, re, getopt, fnmatch
     import types, resource, getpass, glob, linecache
+    import json
 except KeyboardInterrupt:
     pass
 
@@ -90,6 +91,7 @@ class Options:
         self.update = True
         self.header = True
         self.output = False
+        self.json = False
         self.pidfile = False
         self.profile = ''
 
@@ -117,7 +119,7 @@ class Options:
                 ['all', 'all-plugins', 'bits', 'bw', 'blackonwhite', 'color',
                  'debug', 'filesystem', 'float', 'full', 'help', 'integer',
                  'list', 'mods', 'modules', 'nocolor', 'noheaders', 'noupdate',
-                 'output=', 'pidfile=', 'profile', 'version', 'vmstat'] + allplugins)
+                 'output=', 'json=', 'pidfile=', 'profile', 'version', 'vmstat'] + allplugins)
         except getopt.error, exc:
             print 'dstat: %s, try dstat -h for a list of all the options' % str(exc)
             sys.exit(1)
@@ -201,6 +203,8 @@ class Options:
                 self.update = False
             elif opt in ['-o', '--output']:
                 self.output = arg
+            elif opt in ['--json']:
+                self.json = arg
             elif opt in ['--pidfile']:
                 self.pidfile = arg
             elif opt in ['--profile']:
@@ -2787,12 +2791,26 @@ def perform(update):
         ### Calculate all objects (visible, invisible)
         line = newline
         oline = ''
+        json_res = {}
         for o in totlist:
             o.extract()
             if o in vislist:
                 line = line + o.show() + o.showend(totlist, vislist)
             if op.output and step == op.delay:
                 oline = oline + o.showcsv() + o.showcsvend(totlist, vislist)
+            if op.json:
+                json_line = {}
+                try:
+                    json_res[o.name] = o.val
+                except:
+                    for i in range(len(o.nick)):
+                        try:
+                            json_line[o.nick[i]] = o.val["total"][i]
+                        except:
+                            pass
+                    json_res["".join(o.name)] = json_line
+                with open(op.json, "w") as f:
+                    f.write(json.dumps(json_res))
 
         ### Print stats
         sys.stdout.write(line + theme['input'])
