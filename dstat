@@ -115,7 +115,7 @@ class Options:
         }
 
         try:
-            opts, args = getopt.getopt(args, 'acdfghilmno:prstTvyC:D:I:M:N:S:V',
+            opts, args = getopt.getopt(args, 'acdfghilmno:prstTvyC:D:I:M:N:S:Vu',
                 ['all', 'all-plugins', 'bits', 'bw', 'blackonwhite', 'color',
                  'debug', 'filesystem', 'float', 'full', 'help', 'integer',
                  'list', 'mods', 'modules', 'nocolor', 'noheaders', 'noupdate',
@@ -145,6 +145,7 @@ class Options:
                 self.plugins.append('load')
             elif opt in ['-m']:
                 self.plugins.append('mem')
+                self.plugins.append('memery')
             elif opt in ['-M', '--mods', '--modules']:
                 print >>sys.stderr, 'WARNING: Option %s is deprecated, please use --%s instead' % (opt, ' --'.join(arg.split(',')))
                 self.plugins += arg.split(',')
@@ -166,6 +167,8 @@ class Options:
                 self.plugins.append('epoch')
             elif opt in ['-y']:
                 self.plugins.append('sys')
+            elif opt in ['-u']:
+                self.plugins.append("updates")
 
             elif opt in ['-a', '--all']:
                 self.plugins += [ 'cpu', 'disk', 'net', 'page', 'sys' ]
