@@ -87,6 +87,7 @@ class Options:
         self.netlist = None
         self.swaplist = None
         self.color = None
+        self.collectd = False
         self.update = True
         self.header = True
         self.output = False
@@ -117,7 +118,8 @@ class Options:
                 ['all', 'all-plugins', 'bits', 'bw', 'blackonwhite', 'color',
                  'debug', 'filesystem', 'float', 'full', 'help', 'integer',
                  'list', 'mods', 'modules', 'nocolor', 'noheaders', 'noupdate',
-                 'output=', 'pidfile=', 'profile', 'version', 'vmstat'] + allplugins)
+                 'output=', 'pidfile=', 'profile', 'version', 'vmstat',
+                 'collectd'] + allplugins)
         except getopt.error, exc:
             print 'dstat: %s, try dstat -h for a list of all the options' % str(exc)
             sys.exit(1)
@@ -195,6 +197,8 @@ class Options:
                 sys.exit(0)
             elif opt in ['--nocolor']:
                 self.color = False
+            elif opt in ['--collectd']:
+                self.collectd = True
             elif opt in ['--noheaders']:
                 self.header = False
             elif opt in ['--noupdate']:
@@ -340,6 +344,7 @@ class dstat:
     scales = ()
     cols = 0
     struct = None
+    collectd = False
 #    val = {}
 #    set1 = {}
 #    set2 = {}
@@ -535,7 +540,30 @@ class dstat:
                 scale = self.scales[i]
             else:
                 scale = self.scale
-            if isinstance(self.val[name], types.TupleType) or isinstance(self.val[name], types.ListType):
+            if op.collectd:
+                items = self.val.keys()
+                try:
+                    plugin_name = re.sub('/.*$', '', self.name[0]).replace(' ', '_')
+                    for subcat in items:
+                        for nick_cnt in range(0, len(self.nick)):
+                            line += "PUTVAL \"{host}/dstat-{plugin}/{name}-{nick}\" interval={interv} N:{val}\n".format(
+                                host=hostname,
+                                plugin=plugin_name,
+                                name=subcat,
+                                nick=self.nick[nick_cnt],
+                                interv=op.delay,
+                                val=self.val[subcat][nick_cnt])
+                    return line
+                except TypeError:
+                    for key in self.val.keys():
+                        line += "PUTVAL \"{host}/dstat-{dtype}/gauge-{col}\" interval={interv} N:{val}\n".format(
+                            host = os.uname()[1] .split('.')[0],
+                            dtype = self.name.replace(' ', '_'),
+                            col = key,
+                            interv = 42,
+                            val = self.val[key])
+                    return line
+            elif isinstance(self.val[name], types.TupleType) or isinstance(self.val[name], types.ListType):
                 line = line + cprintlist(self.val[name], type, self.width, scale)
                 sep = theme['frame'] + char['colon']
                 if i + 1 != len(self.vars):
@@ -550,7 +578,9 @@ class dstat:
         return line
 
     def showend(self, totlist, vislist):
-        if vislist and self is not vislist[-1]:
+        if op.collectd:
+            return ''
+        elif vislist and self is not vislist[-1]:
             return theme['frame'] + char['pipe']
         elif totlist != vislist:
             return theme['frame'] + char['gt']
@@ -2533,6 +2563,7 @@ def main():
     global ansi, theme, outputfile
     global totlist, inittime
     global update, missed
+    global hostname
 
     cpunr = getcpunr()
     hz = os.sysconf('SC_CLK_TCK')
